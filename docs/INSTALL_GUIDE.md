@@ -56,7 +56,7 @@ chmod +x installer/install.sh
 
 1. 在 Telegram 搜索 **@userinfobot**
 2. 点击开始
-3. 复制显示的 ID（如：`5528268909`）
+3. 复制显示的 ID（如：`123456789`）
 
 ---
 
@@ -130,7 +130,7 @@ cc-bot config
 修改 `ALLOWED_USERS`：
 
 ```env
-ALLOWED_USERS=5528268909,123456789
+ALLOWED_USERS=123456789,987654321
 ```
 
 多个用户用逗号分隔，留空允许所有人。

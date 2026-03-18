@@ -3,10 +3,13 @@
 CC Switch CLI - 命令行控制 CC Switch 模型切换
 
 使用方法:
-    cc-switch-cli list              # 列出所有模型
-    cc-switch-cli current           # 显示当前模型
-    cc-switch-cli switch <name>     # 切换到指定模型
-    cc-switch-cli switch --index 1  # 按索引切换
+    cc-switch-cli list                      # 列出所有模型
+    cc-switch-cli current                   # 显示当前模型
+    cc-switch-cli switch <name|index>       # 切换到指定模型
+    cc-switch-cli config [provider_id]      # 查看模型配置
+    cc-switch-cli seturl <id> <url>         # 修改 Base URL
+    cc-switch-cli setkey <id> <key>         # 修改 API Key
+    cc-switch-cli rename <id> <name>        # 重命名模型
 """
 
 import sqlite3
@@ -165,6 +168,121 @@ class CCSwitchCLI:
         except Exception as e:
             print(f"警告: 更新 settings.json 失败: {e}")
 
+    def get_provider_config(self, provider_id: str = None, app_type: str = "claude") -> dict:
+        """获取模型配置详情"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # 如果未指定 provider_id，获取当前使用的
+        if not provider_id:
+            cursor.execute("""
+                SELECT id FROM providers
+                WHERE app_type = ? AND is_current = 1
+            """, (app_type,))
+            row = cursor.fetchone()
+            if row:
+                provider_id = row[0]
+            else:
+                conn.close()
+                return {}
+
+        cursor.execute("""
+            SELECT name, settings_config FROM providers
+            WHERE id = ? AND app_type = ?
+        """, (provider_id, app_type))
+
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return {}
+
+        try:
+            config = json.loads(row[1])
+            return {
+                'name': row[0],
+                'id': provider_id,
+                'config': config
+            }
+        except:
+            return {'name': row[0], 'id': provider_id, 'config': {}}
+
+    def update_provider_config(self, provider_id: str, new_config: dict, app_type: str = "claude") -> bool:
+        """更新模型配置"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            # 获取当前配置
+            cursor.execute("""
+                SELECT settings_config FROM providers
+                WHERE id = ? AND app_type = ?
+            """, (provider_id, app_type))
+
+            row = cursor.fetchone()
+            if not row:
+                print(f"错误: 找不到模型 '{provider_id}'")
+                return False
+
+            # 合并配置
+            try:
+                current_config = json.loads(row[0])
+            except:
+                current_config = {}
+
+            current_config.update(new_config)
+
+            # 更新数据库
+            cursor.execute("""
+                UPDATE providers
+                SET settings_config = ?
+                WHERE id = ? AND app_type = ?
+            """, (json.dumps(current_config), provider_id, app_type))
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            print(f"更新失败: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+
+    def update_base_url(self, provider_id: str, base_url: str, app_type: str = "claude") -> bool:
+        """更新 Base URL"""
+        return self.update_provider_config(provider_id, {
+            'env': {'ANTHROPIC_BASE_URL': base_url}
+        }, app_type)
+
+    def update_api_key(self, provider_id: str, api_key: str, app_type: str = "claude") -> bool:
+        """更新 API Key"""
+        return self.update_provider_config(provider_id, {
+            'env': {'ANTHROPIC_AUTH_TOKEN': api_key}
+        }, app_type)
+
+    def rename_provider(self, provider_id: str, new_name: str, app_type: str = "claude") -> bool:
+        """重命名模型"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                UPDATE providers
+                SET name = ?
+                WHERE id = ? AND app_type = ?
+            """, (new_name, provider_id, app_type))
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            print(f"重命名失败: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+
 
 def print_providers(providers: List[Provider]):
     """打印提供商列表"""
@@ -211,6 +329,62 @@ def main():
 
         identifier = sys.argv[2]
         success = cli.switch_provider(identifier)
+        sys.exit(0 if success else 1)
+
+    elif command == "config":
+        # 显示当前模型的配置
+        provider_id = sys.argv[2] if len(sys.argv) > 2 else None
+        config = cli.get_provider_config(provider_id)
+        if config:
+            print(f"\n模型: {config['name']}")
+            print(f"ID: {config['id']}")
+            print("\n配置:")
+            print(json.dumps(config['config'], indent=2, ensure_ascii=False))
+            print()
+        else:
+            print("错误: 无法获取配置")
+            sys.exit(1)
+
+    elif command == "seturl":
+        if len(sys.argv) < 4:
+            print("用法: cc-switch-cli seturl <provider_id> <base_url>")
+            print("示例:")
+            print('  cc-switch-cli seturl "model-uuid" "https://api.example.com"')
+            sys.exit(1)
+
+        provider_id = sys.argv[2]
+        base_url = sys.argv[3]
+        success = cli.update_base_url(provider_id, base_url)
+        if success:
+            print(f"✅ 已更新 Base URL: {base_url}")
+        sys.exit(0 if success else 1)
+
+    elif command == "setkey":
+        if len(sys.argv) < 4:
+            print("用法: cc-switch-cli setkey <provider_id> <api_key>")
+            print("示例:")
+            print('  cc-switch-cli setkey "model-uuid" "sk-xxx"')
+            sys.exit(1)
+
+        provider_id = sys.argv[2]
+        api_key = sys.argv[3]
+        success = cli.update_api_key(provider_id, api_key)
+        if success:
+            print("✅ 已更新 API Key")
+        sys.exit(0 if success else 1)
+
+    elif command == "rename":
+        if len(sys.argv) < 4:
+            print("用法: cc-switch-cli rename <provider_id> <new_name>")
+            print("示例:")
+            print('  cc-switch-cli rename "model-uuid" "My Custom Model"')
+            sys.exit(1)
+
+        provider_id = sys.argv[2]
+        new_name = sys.argv[3]
+        success = cli.rename_provider(provider_id, new_name)
+        if success:
+            print(f"✅ 已重命名为: {new_name}")
         sys.exit(0 if success else 1)
 
     else:

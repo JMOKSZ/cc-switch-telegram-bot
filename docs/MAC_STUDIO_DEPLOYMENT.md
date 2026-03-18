@@ -132,7 +132,7 @@ tar czf ~/cc-studio-deploy.tar.gz \
 # 传输到 Mac Studio
 # 方法 1: Airdrop
 # 方法 2: scp
-scp ~/cc-studio-deploy.tar.gz stu-mok:~/
+scp ~/cc-studio-deploy.tar.gz user@mac-studio:~/
 
 # 方法 3: 共享文件夹
 # 方法 4: U盘
@@ -176,18 +176,18 @@ cat > ~/Library/LaunchAgents/com.ccswitch.telegrambot.plist << 'EOF'
     <string>com.ccswitch.telegrambot</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/mominjian/.cc-switch-telegram-bot/launch.sh</string>
+        <string>/Users/YOUR_USERNAME/.cc-switch-telegram-bot/launch.sh</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/mominjian/.cc-switch-telegram-bot</string>
+    <string>/Users/YOUR_USERNAME/.cc-switch-telegram-bot</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/mominjian/.cc-switch-telegram-bot/logs/bot.log</string>
+    <string>/Users/YOUR_USERNAME/.cc-switch-telegram-bot/logs/bot.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/mominjian/.cc-switch-telegram-bot/logs/bot.error.log</string>
+    <string>/Users/YOUR_USERNAME/.cc-switch-telegram-bot/logs/bot.error.log</string>
 </dict>
 </plist>
 EOF
@@ -220,7 +220,7 @@ sqlite3 ~/.cc-switch/cc-switch.db \
 
 ```bash
 # 从 Mac Mini 复制 CC Switch 数据库
-scp mac-mini:~/.cc-switch/cc-switch.db ~/.cc-switch/
+scp user@mac-mini:~/.cc-switch/cc-switch.db ~/.cc-switch/
 ```
 
 ### 2. 配置环境变量

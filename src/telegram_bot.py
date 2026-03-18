@@ -76,6 +76,12 @@ class CCSwitchTelegramBot:
         # Switch command
         self.application.add_handler(CommandHandler("switch", self.cmd_switch))
 
+        # Config management commands
+        self.application.add_handler(CommandHandler("config", self.cmd_config))
+        self.application.add_handler(CommandHandler("seturl", self.cmd_seturl))
+        self.application.add_handler(CommandHandler("setkey", self.cmd_setkey))
+        self.application.add_handler(CommandHandler("rename", self.cmd_rename))
+
         # Callback queries for inline keyboards
         self.application.add_handler(CallbackQueryHandler(self.on_callback))
 
@@ -121,13 +127,21 @@ class CCSwitchTelegramBot:
         help_text = """
 <b>📱 CC Switch Telegram 控制器</b>
 
-<b>命令列表:</b>
+<b>模型管理:</b>
 • /list - 显示所有可用模型
 • /current - 显示当前使用的模型
 • /switch &lt;名称&gt; - 切换到指定模型
   例如: /switch Kimi
        /switch 1
-• /menu - 打开图形化选择菜单
+
+<b>配置管理:</b>
+• /config - 查看当前模型配置(Base URL, API Key 等)
+• /seturl &lt;url&gt; - 修改 Base URL
+  例如: /seturl https://api.example.com/v1
+• /setkey &lt;key&gt; - 修改 API Key
+  例如: /setkey sk-xxxxx
+• /rename &lt;名称&gt; - 重命名当前模型
+  例如: /rename 我的自定义模型
 
 <b>快捷操作:</b>
 直接点击按钮即可切换模型
@@ -135,6 +149,7 @@ class CCSwitchTelegramBot:
 <b>注意事项:</b>
 • 切换后会立即生效
 • 新的对话将使用新模型
+• 配置修改后需切换模型或重启 Claude Code 生效
         """
         await update.message.reply_text(help_text, parse_mode='HTML')
 
@@ -271,6 +286,168 @@ class CCSwitchTelegramBot:
                     "请重试或联系管理员",
                     parse_mode='HTML'
                 )
+
+    async def cmd_config(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Config 命令 - 查看模型配置"""
+        if not await self._check_auth(update):
+            return
+
+        # 获取当前模型配置
+        config = self.cli.get_provider_config()
+
+        if not config:
+            await update.message.reply_text("❌ 无法获取配置")
+            return
+
+        # 提取关键信息
+        settings = config.get('config', {})
+        env = settings.get('env', {})
+
+        base_url = env.get('ANTHROPIC_BASE_URL', '未设置')
+        api_key = env.get('ANTHROPIC_AUTH_TOKEN', '')
+        api_key_masked = api_key[:10] + '...' if len(api_key) > 10 else '未设置'
+
+        message = (
+            f"<b>⚙️ 模型配置</b>\n\n"
+            f"名称: <b>{config['name']}</b>\n"
+            f"ID: <code>{config['id']}</code>\n\n"
+            f"<b>API 配置:</b>\n"
+            f"Base URL: <code>{base_url}</code>\n"
+            f"API Key: <code>{api_key_masked}</code>\n\n"
+            f"<b>修改命令:</b>\n"
+            f"/seturl &lt;新URL&gt; - 修改 Base URL\n"
+            f"/setkey &lt;新Key&gt; - 修改 API Key\n"
+            f"/rename &lt;新名称&gt; - 重命名模型"
+        )
+
+        await update.message.reply_text(message, parse_mode='HTML')
+
+    async def cmd_seturl(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Seturl 命令 - 修改 Base URL"""
+        if not await self._check_auth(update):
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "❌ 请提供新的 Base URL\n"
+                "用法: /seturl &lt;url&gt;\n"
+                "例如: /seturl https://api.example.com/v1",
+                parse_mode='HTML'
+            )
+            return
+
+        new_url = context.args[0]
+
+        # 获取当前模型
+        current = self.cli.get_current_provider()
+        if not current:
+            await update.message.reply_text("❌ 无法获取当前模型")
+            return
+
+        # 更新 URL
+        processing_msg = await update.message.reply_text("🔄 正在更新 Base URL...")
+
+        success = self.cli.update_base_url(current.id, new_url)
+
+        if success:
+            await processing_msg.edit_text(
+                f"✅ <b>Base URL 已更新!</b>\n\n"
+                f"新 URL: <code>{new_url}</code>\n\n"
+                f"注意: 切换模型或重启 Claude Code 后生效",
+                parse_mode='HTML'
+            )
+        else:
+            await processing_msg.edit_text(
+                "❌ <b>更新失败</b>\n\n"
+                "请检查模型 ID 是否正确",
+                parse_mode='HTML'
+            )
+
+    async def cmd_setkey(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Setkey 命令 - 修改 API Key"""
+        if not await self._check_auth(update):
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "❌ 请提供新的 API Key\n"
+                "用法: /setkey &lt;key&gt;\n"
+                "例如: /setkey sk-xxxxxxxxxxxx\n\n"
+                "⚠️ 注意: Key 将被安全存储",
+                parse_mode='HTML'
+            )
+            return
+
+        new_key = context.args[0]
+
+        # 获取当前模型
+        current = self.cli.get_current_provider()
+        if not current:
+            await update.message.reply_text("❌ 无法获取当前模型")
+            return
+
+        # 更新 Key
+        processing_msg = await update.message.reply_text("🔄 正在更新 API Key...")
+
+        success = self.cli.update_api_key(current.id, new_key)
+
+        if success:
+            key_masked = new_key[:10] + '...' if len(new_key) > 10 else new_key
+            await processing_msg.edit_text(
+                f"✅ <b>API Key 已更新!</b>\n\n"
+                f"新 Key: <code>{key_masked}</code>\n\n"
+                f"注意: 切换模型或重启 Claude Code 后生效",
+                parse_mode='HTML'
+            )
+        else:
+            await processing_msg.edit_text(
+                "❌ <b>更新失败</b>\n\n"
+                "请检查模型 ID 是否正确",
+                parse_mode='HTML'
+            )
+
+    async def cmd_rename(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Rename 命令 - 重命名模型"""
+        if not await self._check_auth(update):
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "❌ 请提供新的名称\n"
+                "用法: /rename &lt;新名称&gt;\n"
+                "例如: /rename 我的自定义模型",
+                parse_mode='HTML'
+            )
+            return
+
+        new_name = " ".join(context.args)
+
+        # 获取当前模型
+        current = self.cli.get_current_provider()
+        if not current:
+            await update.message.reply_text("❌ 无法获取当前模型")
+            return
+
+        old_name = current.name
+
+        # 更新名称
+        processing_msg = await update.message.reply_text("🔄 正在重命名...")
+
+        success = self.cli.rename_provider(current.id, new_name)
+
+        if success:
+            await processing_msg.edit_text(
+                f"✅ <b>重命名成功!</b>\n\n"
+                f"原名: {old_name}\n"
+                f"新名: <b>{new_name}</b>",
+                parse_mode='HTML'
+            )
+        else:
+            await processing_msg.edit_text(
+                "❌ <b>重命名失败</b>\n\n"
+                "请重试",
+                parse_mode='HTML'
+            )
 
     async def on_error(self, update: Optional[Update], context: ContextTypes.DEFAULT_TYPE):
         """Error handler"""
