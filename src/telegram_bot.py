@@ -16,6 +16,11 @@ from typing import Optional
 # Add parent to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+load_dotenv(env_path)
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -36,6 +41,19 @@ logger = logging.getLogger(__name__)
 
 # States for conversation
 SELECTING_MODEL = 1
+
+# Load allowed users from environment
+ALLOWED_USERS_STR = os.environ.get("ALLOWED_USERS", "")
+ALLOWED_USERS = set()
+if ALLOWED_USERS_STR:
+    ALLOWED_USERS = set(int(x.strip()) for x in ALLOWED_USERS_STR.split(",") if x.strip())
+
+
+def is_user_allowed(user_id: int) -> bool:
+    """Check if user is allowed to use the bot"""
+    if not ALLOWED_USERS:
+        return True  # Allow all if not configured
+    return user_id in ALLOWED_USERS
 
 
 class CCSwitchTelegramBot:
@@ -64,8 +82,24 @@ class CCSwitchTelegramBot:
         # Error handler
         self.application.add_error_handler(self.on_error)
 
+    async def _check_auth(self, update: Update) -> bool:
+        """Check if user is authorized"""
+        user = update.effective_user
+        if not is_user_allowed(user.id):
+            await update.message.reply_text(
+                "⛔ 你没有权限使用这个 Bot。\n"
+                f"你的用户 ID: `{user.id}`",
+                parse_mode='Markdown'
+            )
+            logger.warning(f"Unauthorized access attempt by user {user.id} ({user.username})")
+            return False
+        return True
+
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start 命令"""
+        if not await self._check_auth(update):
+            return
+
         user = update.effective_user
         await update.message.reply_text(
             f"👋 你好 {user.first_name}!\n\n"
@@ -81,6 +115,9 @@ class CCSwitchTelegramBot:
 
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Help 命令"""
+        if not await self._check_auth(update):
+            return
+
         help_text = """
 <b>📱 CC Switch Telegram 控制器</b>
 
@@ -103,6 +140,9 @@ class CCSwitchTelegramBot:
 
     async def cmd_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List 命令 - 列出所有模型"""
+        if not await self._check_auth(update):
+            return
+
         providers = self.cli.list_providers()
 
         if not providers:
@@ -137,6 +177,9 @@ class CCSwitchTelegramBot:
 
     async def cmd_current(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Current 命令 - 显示当前模型"""
+        if not await self._check_auth(update):
+            return
+
         current = self.cli.get_current_provider()
 
         if not current:
@@ -156,6 +199,9 @@ class CCSwitchTelegramBot:
 
     async def cmd_switch(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Switch 命令 - 切换模型"""
+        if not await self._check_auth(update):
+            return
+
         if not context.args:
             await update.message.reply_text(
                 "❌ 请指定要切换的模型\n"
@@ -192,6 +238,13 @@ class CCSwitchTelegramBot:
     async def on_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """处理回调查询（内联键盘按钮点击）"""
         query = update.callback_query
+
+        # Check authorization
+        user = query.from_user
+        if not is_user_allowed(user.id):
+            await query.answer("⛔ 你没有权限使用此功能", show_alert=True)
+            return
+
         await query.answer()
 
         data = query.data
