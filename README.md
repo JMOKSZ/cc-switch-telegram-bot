@@ -1,137 +1,233 @@
 # CC Switch Telegram Bot
 
-通过 Telegram 远程控制 CC Switch，切换 Claude Code 使用的 AI 模型。
+[![Platform](https://img.shields.io/badge/platform-macOS-blue)](https://github.com/JMOKSZ/cc-switch-telegram-bot)
+[![Python](https://img.shields.io/badge/python-3.9+-green)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 
-## 功能
+🤖 **通过 Telegram 远程控制你的 CC Switch，随时切换 Claude Code 使用的 AI 模型**
 
-- 📱 **Telegram 远程控制** - 随时随地切换模型
-- 🎯 **快速切换** - 支持名称、序号、ID 多种方式
-- 📋 **实时列表** - 查看所有可用模型
-- ✅ **当前状态** - 随时查看正在使用的模型
+---
 
-## 适用场景
+## ✨ 功能特性
 
-- 在外面用手机远程切换家里的 Mac 上的模型
-- 不想打开 CC Switch GUI 时快速切换
-- 自动化脚本集成
+- 📱 **Telegram 远程控制** - 随时随地用手机切换模型
+- 🖥️ **菜单栏应用** - 从 macOS 菜单栏快速控制
+- 🔒 **用户权限管理** - 只允许特定用户使用
+- 🚀 **一键安装** - 自动配置，开箱即用
+- 🔄 **多机器支持** - 可在多台 Mac 上部署
+- 📝 **完整日志** - 方便排查问题
 
-## 支持的模型
+---
 
-根据你的 CC Switch 配置，目前支持：
-1. **Kimi For Coding** - Kimi 编程专用
-2. **Claude** - Claude 官方
-3. **GLM** - 智谱 GLM
-4. **Volcengine** - 火山引擎
+## 🚀 快速开始
 
-## 快速开始
-
-### 1. 安装依赖
+### 一键安装（推荐）
 
 ```bash
-cd ~/github/cc-switch-telegram-bot
-pip3 install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/JMOKSZ/cc-switch-telegram-bot/main/installer/install.sh | bash
 ```
 
-### 2. 配置 Telegram Bot
-
-1. 在 Telegram 中找到 [@BotFather](https://t.me/BotFather)
-2. 发送 `/newbot` 创建新 Bot
-3. 复制 Bot Token
-4. 配置环境变量：
+### 手动安装
 
 ```bash
-cp .env.example .env
-# 编辑 .env 填入你的 Token
-export TELEGRAM_BOT_TOKEN="your_token_here"
+git clone https://github.com/JMOKSZ/cc-switch-telegram-bot.git
+cd cc-switch-telegram-bot
+./installer/install.sh
 ```
 
-### 3. 启动 Bot
+---
+
+## 📱 使用方法
+
+### Telegram Bot 命令
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `/start` | 开始使用 | - |
+| `/list` | 列出所有模型（带切换按钮） | - |
+| `/current` | 查看当前模型 | - |
+| `/switch` | 切换模型 | `/switch Kimi` |
+| `/help` | 显示帮助 | - |
+
+### 终端命令
 
 ```bash
-python src/telegram_bot.py
+cc-bot start      # 启动 Bot
+cc-bot stop       # 停止 Bot
+cc-bot restart    # 重启 Bot
+cc-bot status     # 查看状态
+cc-bot log        # 查看日志
+cc-bot config     # 编辑配置
+cc-bot uninstall  # 卸载
 ```
 
-### 4. 在 Telegram 中使用
+---
 
-向你的 Bot 发送命令：
+## 🎬 使用场景
 
+### 场景 1：外出时切换模型
 ```
-/start - 开始使用
-/list - 列出所有模型
-/current - 查看当前模型
-/switch Kimi - 切换到 Kimi
-/switch 1 - 切换到第1个模型
-/help - 查看帮助
+你在外面使用手机 → 打开 Telegram → /switch Claude
+                              ↓
+家里 Mac 上的 Claude Code → 新对话自动使用 Claude
 ```
 
-## CLI 独立使用
+### 场景 2：对比不同模型效果
+```
+在 Telegram 快速切换 → 在 Claude Code 测试同一个问题
+                              ↓
+比较 Kimi / Claude / GLM 的回答差异
+```
 
-即使不用 Telegram，你也可以单独使用 CLI：
+### 场景 3：多台 Mac 统一管理
+```
+Mac Mini: 运行 Bot
+Mac Studio: 同样被控制
+                ↓
+一个 Telegram Bot 控制多台机器
+```
+
+---
+
+## 📦 系统要求
+
+- **macOS** 11.0 或更高版本
+- **CC Switch** 已安装并配置
+- **Claude Code** 已安装
+- **Python** 3.9 或更高版本
+- **Telegram** 账号
+
+---
+
+## 🖥️ 菜单栏应用
+
+安装 `rumps` 获得更好的体验：
 
 ```bash
-# 列出所有模型
-python src/cc_switch_cli.py list
-
-# 查看当前模型
-python src/cc_switch_cli.py current
-
-# 切换模型
-python src/cc_switch_cli.py switch Kimi
-python src/cc_switch_cli.py switch 1
-python src/cc_switch_cli.py switch "Claude"
+pip3 install rumps
+~/.cc-switch-telegram-bot/start-menu-bar.sh
 ```
 
-## 系统要求
+菜单栏功能：
+- 🟢/🔴 实时显示 Bot 状态
+- 一键启动/停止/重启
+- 查看当前模型
+- 快速查看日志
 
-- macOS (CC Switch 仅支持 Mac)
-- Python 3.9+
-- 已安装 CC Switch 并配置好模型
+---
 
-## 工作原理
+## 🔒 安全性
 
-1. Bot 直接读取 `~/.cc-switch/cc-switch.db` SQLite 数据库
-2. 修改 `providers` 表的 `is_current` 字段
-3. 同时更新 `settings.json` 的 `currentProviderClaude`
-4. CC Switch 会自动检测到配置变化
+- ✅ **Token 本地存储** - 不上传到任何服务器
+- ✅ **用户白名单** - 可限制只允许特定用户使用
+- ✅ **只读操作** - 不会修改 CC Switch 以外的配置
 
-## 安全提示
+---
 
-⚠️ **Token 保密** - 不要将 `TELEGRAM_BOT_TOKEN` 提交到 Git
+## 🔄 多机器部署
 
-## 后台运行
-
-使用 `nohup` 或 `screen` 让 Bot 在后台运行：
+在另一台 Mac（如 Mac Studio）上部署：
 
 ```bash
-# 使用 nohup
-nohup python src/telegram_bot.py > bot.log 2>&1 &
+# 同样的安装命令
+curl -fsSL https://raw.githubusercontent.com/JMOKSZ/cc-switch-telegram-bot/main/installer/install.sh | bash
 
-# 或使用 screen
-screen -S cc-switch-bot
-python src/telegram_bot.py
-# Ctrl+A, D 分离
+# 可以选择：
+# 1. 使用同一个 Bot Token（统一控制）
+# 2. 创建新的 Bot（独立控制）
 ```
 
-## 故障排查
+---
+
+## 📁 项目结构
+
+```
+cc-switch-telegram-bot/
+├── src/
+│   ├── telegram_bot.py      # Telegram Bot 主程序
+│   ├── cc_switch_cli.py     # CLI 工具
+│   └── menu_bar_app.py      # 菜单栏应用
+├── installer/
+│   └── install.sh           # 一键安装脚本
+├── app/
+│   └── create_app.sh        # macOS App Bundle 创建器
+├── docs/
+│   └── INSTALL_GUIDE.md     # 详细安装指南
+└── README.md                # 本文件
+```
+
+---
+
+## 🛠️ 故障排查
 
 ### Bot 无法启动
-```bash
-# 检查 Token 是否正确
-echo $TELEGRAM_BOT_TOKEN
 
-# 检查依赖
-pip3 list | grep telegram
+```bash
+# 查看日志
+tail -f ~/.cc-switch-telegram-bot/logs/bot.log
+
+# 检查配置
+cat ~/.cc-switch-telegram-bot/.env
 ```
 
 ### 切换模型失败
-```bash
-# 检查 CC Switch 数据库权限
-ls -la ~/.cc-switch/cc-switch.db
 
-# 手动测试 CLI
-python src/cc_switch_cli.py list
+```bash
+# 检查 CC Switch 数据库
+sqlite3 ~/.cc-switch/cc-switch.db "SELECT name, is_current FROM providers"
+
+# 手动测试
+cc-bot status
+python3 ~/.cc-switch-telegram-bot/src/cc_switch_cli.py current
 ```
 
-## License
+---
 
-MIT
+## 📝 工作原理
+
+```
+┌─────────────────┐     ┌─────────────┐     ┌─────────────────┐
+│  Telegram Bot   │────▶│ CC Switch   │────▶│  Claude Code    │
+│  (你的手机)      │     │  数据库      │     │  (新对话生效)    │
+└─────────────────┘     └─────────────┘     └─────────────────┘
+         │                                               ▲
+         │     修改配置后，Claude Code 读取新配置           │
+         └───────────────────────────────────────────────┘
+```
+
+---
+
+## 🗺️ 路线图
+
+- [x] 基础 Telegram Bot
+- [x] CLI 工具
+- [x] 菜单栏应用
+- [x] 一键安装脚本
+- [x] 用户权限管理
+- [ ] 多机器同步
+- [ ] 切换历史记录
+- [ ] Web 管理界面
+- [ ] 自动模型推荐
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+---
+
+## 📄 许可证
+
+MIT License
+
+---
+
+## 💖 感谢
+
+- [CC Switch](https://www.ccswitch.com/) - 优秀的 Claude Code 模型管理工具
+- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot 框架
+
+---
+
+**开始远程控制你的 Claude Code 吧！** 🚀
