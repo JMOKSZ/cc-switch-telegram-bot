@@ -1,0 +1,10 @@
+# CC Switch Telegram Bot Dependencies
+
+# Telegram Bot
+python-telegram-bot>=20.7
+
+# HTTP client (for future extensions)
+httpx>=0.25.0
+
+# Configuration
+python-dotenv>=1.0.0
